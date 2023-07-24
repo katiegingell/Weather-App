@@ -1,12 +1,13 @@
 package com.example.weatherapp
 
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.padding
@@ -18,24 +19,28 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
-import androidx.compose.ui.graphics.painter.Painter
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import coil.compose.AsyncImage
 import com.example.weatherapp.ui.theme.WeatherAppTheme
+import dagger.hilt.android.AndroidEntryPoint
+import kotlin.math.roundToInt
 
-
+@AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+    @RequiresApi(Build.VERSION_CODES.O)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
@@ -65,23 +70,19 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
-    )
-}
-
-@Composable
-fun WeatherDataView() {
-    val image: Painter = painterResource(id = R.drawable._1d)
+fun WeatherDataView(viewModel: CurrentConditionsViewModel = hiltViewModel()) {
+    val currentConData = viewModel.currentConditions.observeAsState()
+    LaunchedEffect(Unit) {
+        viewModel.viewAppeared()
+    }
     Column(
         modifier = Modifier
             .padding(20.dp)
             .fillMaxSize()
     ) {
+        // city name
         Text(
-            text = stringResource(id = R.string.city),
+            text = currentConData.value?.cityName ?: "City",
             fontSize = 20.sp,
             modifier = Modifier.align(Alignment.CenterHorizontally)
         )
@@ -89,39 +90,43 @@ fun WeatherDataView() {
             modifier = Modifier
                 .align(Alignment.CenterHorizontally)
         ) {
-            Column() {
+            Column {
+                // current temp
                 Text(
-                    text = stringResource(id = R.string.temperature),
+                    text = currentConData.value?.currentWeather?.temp?.roundToInt()
+                        .toString() + "°",
                     fontSize = 70.sp
                 )
+                // feels like
                 Text(
-                    text = stringResource(id = R.string.feels_like_temp),
+                    text = "Feels like " + currentConData.value?.currentWeather?.feelsLike?.roundToInt() + "°",
                     fontSize = 15.sp
                 )
             }
             Spacer(modifier = Modifier.padding(horizontal = 30.dp))
-            Image(
-                painter = image,
-                contentDescription = "clear sky",
-                modifier = Modifier.size(100.dp)
-            )
+            // icon
+            currentConData.value?.iconUrl?.let { WeatherConditionIconCurrent(url = it) }
 
         }
         Spacer(modifier = Modifier.padding(vertical = 15.dp))
+        // low
         Text(
-            text = stringResource(id = R.string.low_temp),
+            text = "Low " + currentConData.value?.currentWeather?.tempMin?.roundToInt() + "°",
             fontSize = 20.sp
         )
+        // high
         Text(
-            text = stringResource(id = R.string.high_temp),
+            text = "High " + currentConData.value?.currentWeather?.tempMax?.roundToInt() + "°",
             fontSize = 20.sp
         )
+        // humidity
         Text(
-            text = stringResource(id = R.string.humidity),
+            text = "Humidity " + currentConData.value?.currentWeather?.humidity + "%",
             fontSize = 20.sp
         )
+        // pressure
         Text(
-            text = stringResource(id = R.string.pressure),
+            text = "Pressure " + currentConData.value?.currentWeather?.pressure?.roundToInt() + " hPa",
             fontSize = 20.sp
         )
     }
@@ -150,10 +155,16 @@ fun ForecastButton(navController: NavController) {
 
 }
 
-@Preview(showBackground = true)
 @Composable
-fun GreetingPreview() {
-    WeatherAppTheme {
-        Greeting("Android")
-    }
+fun WeatherConditionIconCurrent(
+    url: String
+) {
+    AsyncImage(model = url, contentDescription = "", modifier = Modifier.size(120.dp))
+}
+
+@Composable
+fun WeatherConditionIconForecast(
+    url: String
+) {
+    AsyncImage(model = url, contentDescription = "", modifier = Modifier.size(60.dp))
 }

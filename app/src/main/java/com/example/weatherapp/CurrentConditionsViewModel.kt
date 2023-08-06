@@ -15,8 +15,21 @@ class CurrentConditionsViewModel @Inject constructor(private val apiService: Api
     private val _currentConditions: MutableLiveData<CurrentConditions> = MutableLiveData()
     val currentConditions: LiveData<CurrentConditions>
         get() = _currentConditions
+    val textField: MutableLiveData<String> = MutableLiveData("55106")
+    val invalidZip: MutableLiveData<Boolean> = MutableLiveData(false)
 
-    fun viewAppeared() = viewModelScope.launch {
-        _currentConditions.value = apiService.getWeatherData()
+    fun validateZipCode(): Boolean {
+        val userZip = textField.value
+        return if (
+            (userZip.isNullOrEmpty() || userZip.length != 5) || (userZip.any { !it.isDigit() }))
+            false
+        else {
+            viewAppeared()
+            true
+        }
+    }
+
+    fun viewAppeared(zip: String? = textField.value) = viewModelScope.launch {
+        _currentConditions.value = apiService.getWeatherData(zip.toString())
     }
 }

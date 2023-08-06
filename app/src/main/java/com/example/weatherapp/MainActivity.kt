@@ -8,31 +8,44 @@ import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.livedata.observeAsState
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import coil.compose.AsyncImage
 import com.example.weatherapp.ui.theme.WeatherAppTheme
 import dagger.hilt.android.AndroidEntryPoint
@@ -54,12 +67,16 @@ class MainActivity : ComponentActivity() {
                     NavHost(navController = navController, startDestination = "CurrentConditions") {
                         composable("CurrentConditions") {
                             actionBar?.title = stringResource(id = R.string.app_name)
-                            WeatherDataView()
-                            ForecastButton(navController = navController)
+                            WeatherDataView(navController = navController)
+                            // ForecastButton(navController = navController)
                         }
-                        composable("ForecastScreen") {
+                        composable(
+                            "ForecastScreen/{zip}",
+                            arguments = listOf(navArgument("zip") { type = NavType.StringType })
+                        ) { navBackStackEntry ->
+                            val zip = navBackStackEntry.arguments?.getString("zip").toString()
                             actionBar?.title = "Forecast"
-                            ForecastScreen()
+                            ForecastScreen(zip = zip)
                         }
                     }
 
@@ -69,9 +86,14 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun WeatherDataView(viewModel: CurrentConditionsViewModel = hiltViewModel()) {
+fun WeatherDataView(
+    viewModel: CurrentConditionsViewModel = hiltViewModel(),
+    navController: NavController
+) {
     val currentConData = viewModel.currentConditions.observeAsState()
+    val userInput = viewModel.textField.observeAsState()
     LaunchedEffect(Unit) {
         viewModel.viewAppeared()
     }
@@ -80,6 +102,56 @@ fun WeatherDataView(viewModel: CurrentConditionsViewModel = hiltViewModel()) {
             .padding(20.dp)
             .fillMaxSize()
     ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(60.dp)
+        ) {
+            TextField(
+                value = userInput.value.toString(),
+                modifier = Modifier
+                    .width(240.dp)
+                    .fillMaxHeight(),
+                textStyle = TextStyle(fontSize = 20.sp),
+                label = {
+                    Text(text = "Zip Code")
+                },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                singleLine = true,
+                onValueChange = { viewModel.textField.value = it },
+            )
+            val zipAlert = remember { mutableStateOf(false) }
+            Button(
+                onClick = {
+                    if (viewModel.validateZipCode() == viewModel.invalidZip.value) {
+                        zipAlert.value = true
+                    } else {
+                        viewModel.invalidZip.value = !viewModel.validateZipCode()
+                    }
+                },
+                shape = RectangleShape,
+                modifier = Modifier.fillMaxSize()
+            ) {
+                Text(
+                    text = "Search",
+                    fontSize = 20.sp
+                )
+            }
+            if (zipAlert.value) {
+                AlertDialog(
+                    onDismissRequest = { zipAlert.value = false },
+                    confirmButton = {
+                        Button(onClick = { zipAlert.value = false }) {
+                            Text(text = "OK")
+                        }
+                    },
+                    title = { Text(text = "Invalid Zip Code") },
+                    text = { Text(text = "Zip code must be 5 digits") }
+                )
+            }
+
+        }
+
         // city name
         Text(
             text = currentConData.value?.cityName ?: "City",
@@ -129,18 +201,24 @@ fun WeatherDataView(viewModel: CurrentConditionsViewModel = hiltViewModel()) {
             text = "Pressure " + currentConData.value?.currentWeather?.pressure?.roundToInt() + " hPa",
             fontSize = 20.sp
         )
+        ForecastButton(navController = navController, viewModel)
     }
 }
 
 @Composable
-fun ForecastButton(navController: NavController) {
+fun ForecastButton(
+    navController: NavController,
+    viewModel: CurrentConditionsViewModel = hiltViewModel()
+) {
     Column(
         modifier = Modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
     ) {
         Button(
-            onClick = { navController.navigate("ForecastScreen") },
+            onClick = {
+                val navWithZip = "ForecastScreen/" + viewModel.textField.value.toString()
+                navController.navigate(route = navWithZip)
+            },
             shape = RectangleShape,
             colors = ButtonDefaults.buttonColors(Color.LightGray),
             modifier = Modifier.width(200.dp)

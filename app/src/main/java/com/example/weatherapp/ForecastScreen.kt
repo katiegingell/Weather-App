@@ -23,11 +23,12 @@ import java.util.Date
 import kotlin.math.roundToInt
 
 @Composable
-fun ForecastScreen(viewModel: ForecastViewModel = hiltViewModel()) {
+fun ForecastScreen(viewModel: ForecastViewModel = hiltViewModel(), zip: String) {
     val forecastData = viewModel.forecast.observeAsState()
 
     LaunchedEffect(Unit) {
-        viewModel.viewAppeared()
+        viewModel.validateZipCode(zip)
+        viewModel.viewAppeared(zip)
     }
     LazyColumn {
         items(items = forecastData.value?.forecastList ?: listOf()) {

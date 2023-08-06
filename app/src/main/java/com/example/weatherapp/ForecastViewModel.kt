@@ -15,7 +15,17 @@ class ForecastViewModel @Inject constructor(private val apiService: ApiService) 
     val forecast: LiveData<Forecast>
         get() = _forecast
 
-    fun viewAppeared() = viewModelScope.launch {
-        _forecast.value = apiService.getForecastData()
+    fun validateZipCode(userZip: String): Boolean {
+        return if (
+            (userZip.isNullOrEmpty() || userZip.length != 5) || (userZip.any { !it.isDigit() }))
+            false
+        else {
+            viewAppeared(userZip)
+            true
+        }
+    }
+
+    fun viewAppeared(zip: String) = viewModelScope.launch {
+        _forecast.value = apiService.getForecastData(zip = zip)
     }
 }
